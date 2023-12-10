@@ -1,0 +1,165 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: always
+    networks:
+      - traefik
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./docker/traefik/provider.yml:/etc/traefik/provider.yml
+      - ./.htpasswd:/etc/.htpasswd
+      - ./data/traefik/acme:/etc/traefik/acme
+      - ./data/traefik/log:/var/log/traefik
+    command:
+      - "--certificatesResolvers.letsEncrypt.acme.email=${EMAIL}"
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.traefik.rule=Host(`${TRAEFIK}`)
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.middlewares=auth@file
+      - traefik.http.routers.traefik.entryPoints=web
+
+      - traefik.http.routers.traefikSecure.rule=Host(`${TRAEFIK}`)
+      - traefik.http.routers.traefikSecure.service=api@internal
+      - traefik.http.routers.traefikSecure.middlewares=auth@file
+      - traefik.http.routers.traefikSecure.entryPoints=webSecure
+      - traefik.http.routers.traefikSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.routers.traefikPrometheus.rule=Host(`${TRAEFIK_METRICS}`)
+      - traefik.http.routers.traefikPrometheus.service=prometheus@internal
+      - traefik.http.routers.traefikPrometheus.entryPoints=web
+
+      - traefik.http.routers.traefikPrometheusSecure.rule=Host(`${TRAEFIK_METRICS}`)
+      - traefik.http.routers.traefikPrometheusSecure.service=prometheus@internal
+      - traefik.http.routers.traefikPrometheusSecure.entryPoints=webSecure
+      - traefik.http.routers.traefikPrometheusSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.traefik.loadbalancer.server.port=8082
+  whoami:
+    image: traefik/whoami:v1.8.7
+    container_name: whoami
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.rule=Host(`${WHOAMI}`)
+      - traefik.http.routers.whoami.service=whoami
+      - traefik.http.routers.whoami.entryPoints=web
+
+      - traefik.http.routers.whoamiSecure.rule=Host(`${WHOAMI}`)
+      - traefik.http.routers.whoamiSecure.service=whoami
+      - traefik.http.routers.whoamiSecure.entryPoints=webSecure
+      - traefik.http.routers.whoamiSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.whoami.loadbalancer.server.port=80
+  node-exporter:
+    image: prom/node-exporter:v1.3.1
+    container_name: node-exporter
+    networks:
+      - traefik
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nodeExporter.rule=Host(`${NODE_EXPORTER}`)
+      - traefik.http.routers.nodeExporter.service=nodeExporter
+      - traefik.http.routers.nodeExporter.entryPoints=web
+
+      - traefik.http.routers.nodeExporterSecure.rule=Host(`${NODE_EXPORTER}`)
+      - traefik.http.routers.nodeExporterSecure.service=nodeExporter
+      - traefik.http.routers.nodeExporterSecure.entryPoints=webSecure
+      - traefik.http.routers.nodeExporterSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.nodeExporter.loadbalancer.server.port=9100
+  ipfs:
+    image: ipfs/go-ipfs:v0.17.0
+    container_name: ipfs
+    restart: always
+    networks:
+      - traefik
+    ports:
+      - "4001:4001"
+    volumes:
+      - ./data/ipfs/export:/export
+      - ./data/ipfs/ipfs:/data/ipfs
+      - ./docker/ipfs/001-test.sh:/container-init.d/001-test.sh
+    environment:
+      - IPFS_PROFILE=server
+    labels:
+      - traefik.enable=true
+
+      - |
+        traefik.http.routers.ipfsApi.rule=
+          Host(`${IPFS}`) && (
+          PathPrefix(`/api/v0/add`) ||
+          PathPrefix(`/api/v0/cat`) ||
+          PathPrefix(`/api/v0/get`) ||
+          PathPrefix(`/api/v0/pin/add`) ||
+          PathPrefix(`/api/v0/pin/ls`) ||
+          PathPrefix(`/api/v0/version`) ||
+          PathPrefix(`/debug/metrics/prometheus`))
+      - traefik.http.routers.ipfsApi.service=ipfs
+      - traefik.http.routers.ipfsApi.entryPoints=web
+
+      - traefik.http.routers.ipfs.rule=Host(`${IPFS}`)
+      - traefik.http.routers.ipfs.service=ipfs
+      - traefik.http.routers.ipfs.middlewares=auth@file
+      - traefik.http.routers.ipfs.entryPoints=web
+
+      - |
+        traefik.http.routers.ipfsApiSecure.rule=
+          Host(`${IPFS}`) && (
+          PathPrefix(`/api/v0/add`) ||
+          PathPrefix(`/api/v0/cat`) ||
+          PathPrefix(`/api/v0/get`) ||
+          PathPrefix(`/api/v0/pin/add`) ||
+          PathPrefix(`/api/v0/pin/ls`) ||
+          PathPrefix(`/api/v0/version`) ||
+          PathPrefix(`/debug/metrics/prometheus`))
+      - traefik.http.routers.ipfsApiSecure.service=ipfs
+      - traefik.http.routers.ipfsApiSecure.entryPoints=webSecure
+      - traefik.http.routers.ipfsApiSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.routers.ipfsSecure.rule=Host(`${IPFS}`)
+      - traefik.http.routers.ipfsSecure.service=ipfs
+      - traefik.http.routers.ipfsSecure.middlewares=auth@file
+      - traefik.http.routers.ipfsSecure.entryPoints=webSecure
+      - traefik.http.routers.ipfsSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.ipfs.loadbalancer.server.port=5001
+
+      - traefik.http.routers.ipfsContent.rule=Host(`${IPFS_CONTENT}`)
+      - traefik.http.routers.ipfsContent.service=ipfsContent
+      - traefik.http.routers.ipfsContent.entryPoints=web
+
+      - traefik.http.routers.ipfsContentSecure.rule=Host(`${IPFS_CONTENT}`)
+      - traefik.http.routers.ipfsContentSecure.service=ipfsContent
+      - traefik.http.routers.ipfsContentSecure.entryPoints=webSecure
+      - traefik.http.routers.ipfsContentSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.ipfsContent.loadbalancer.server.port=8080
+  consul-agent:
+    image: consul:1.14.1
+    container_name: consul-agent
+    network_mode: host
+    command: agent -node=${CONSUL_NAME} -bind=${CONSUL_BIND} -retry-join=${CONSUL_JOIN}
+    volumes:
+      - ./docker/consul/ipfs:/consul/config
+networks:
+  traefik:
+    external: true
+    name: traefik

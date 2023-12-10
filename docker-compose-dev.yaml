@@ -1,0 +1,535 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: always
+    networks:
+      - traefik
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./docker/traefik/provider.yml:/etc/traefik/provider.yml
+      - ./.htpasswd:/etc/.htpasswd
+      - ./data/traefik/acme:/etc/traefik/acme
+      - ./data/traefik/log:/var/log/traefik
+    command:
+      - "--certificatesResolvers.letsEncrypt.acme.email=${EMAIL}"
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.traefik.rule=Host(`${TRAEFIK}`)
+      - traefik.http.routers.traefik.service=api@internal
+      # - traefik.http.routers.traefik.middlewares=auth@file
+      - traefik.http.routers.traefik.entryPoints=web
+      # - traefik.http.routers.traefik.middlewares=redirect-to-https
+
+      - traefik.http.routers.traefikSecure.rule=Host(`${TRAEFIK}`)
+      - traefik.http.routers.traefikSecure.service=api@internal
+      # - traefik.http.routers.traefikSecure.middlewares=auth@file
+      - traefik.http.routers.traefikSecure.entryPoints=webSecure
+      - traefik.http.routers.traefikSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.routers.http_catchall.rule=HostRegexp(`{any:.+}`)
+      - traefik.http.routers.http_catchall.entrypoints=web
+      - traefik.http.routers.http_catchall.middlewares=https_redirect
+
+      - traefik.http.middlewares.traefik-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.traefik-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.traefik-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.traefik-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.traefik-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.traefik-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      - traefik.http.middlewares.httpauth.basicauth.usersfile=/etc/.htpasswd
+
+      - traefik.http.middlewares.compress.compress=true
+
+      - traefik.http.routers.traefik.middlewares=traefik-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+      - traefik.http.routers.traefikSecure.middlewares=traefik-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+
+      - traefik.http.routers.traefikPrometheus.rule=Host(`${TRAEFIK_METRICS}`)
+      - traefik.http.routers.traefikPrometheus.service=prometheus@internal
+      - traefik.http.routers.traefikPrometheus.entryPoints=web
+
+      - traefik.http.routers.traefikPrometheusSecure.rule=Host(`${TRAEFIK_METRICS}`)
+      - traefik.http.routers.traefikPrometheusSecure.service=prometheus@internal
+      - traefik.http.routers.traefikPrometheusSecure.middlewares=auth@file
+      - traefik.http.routers.traefikPrometheusSecure.entryPoints=webSecure
+      - traefik.http.routers.traefikPrometheusSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.traefikPrometheus-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.traefikPrometheus-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.traefikPrometheus-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.traefikPrometheus-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.traefikPrometheus-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.traefikPrometheus-headers.headers.stsPreload=true
+
+      - traefik.http.routers.traefikPrometheus.middlewares=traefikPrometheus-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+      - traefik.http.routers.traefikPrometheusSecure.middlewares=traefikPrometheus-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+
+      - traefik.http.services.traefik.loadbalancer.server.port=8082
+  whoami:
+    image: traefik/whoami:v1.8.7
+    command:
+       # It tells whoami to start listening on 3380 instead of 80
+       - --port=3380
+    container_name: whoami
+    restart: always
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.rule=Host(`${WHOAMI}`)
+      - traefik.http.routers.whoami.service=whoami
+      - traefik.http.routers.whoami.entryPoints=web
+
+      - traefik.http.routers.whoamiSecure.rule=Host(`${WHOAMI}`)
+      - traefik.http.routers.whoamiSecure.service=whoami
+      - traefik.http.routers.whoamiSecure.middlewares=auth@file
+      - traefik.http.routers.whoamiSecure.entryPoints=webSecure
+      - traefik.http.routers.whoamiSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.whoami-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.whoami-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.whoami-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.whoami-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.whoami-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.whoami-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      - traefik.http.middlewares.compress.compress=true
+
+      - traefik.http.routers.whoami.middlewares=whoami-headers@docker,https-redirect@docker,compress@docker
+      - traefik.http.routers.whoamiSecure.middlewares=whoami-headers@docker,https-redirect@docker,compress@docker
+
+      - traefik.http.services.whoami.loadbalancer.server.port=3380
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx-files
+    restart: always
+    volumes:
+      - /srv/static:/data/static:ro
+      - /home/ubuntu/uploads/ai:/data/ai:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "server { listen 3381; location /ai { alias /data/ai; } location / { root /data/static; } }" > /etc/nginx/conf.d/default.conf && nginx -g "daemon off;"
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nginx.rule=Host(`${STATIC}`)
+      - traefik.http.routers.nginx.service=nginx
+      - traefik.http.routers.nginx.entryPoints=web
+
+      - traefik.http.routers.nginxSecure.rule=Host(`${STATIC}`)
+      - traefik.http.routers.nginxSecure.service=nginx
+      - traefik.http.routers.nginxSecure.entryPoints=webSecure
+      - traefik.http.routers.nginxSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.nginx-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.nginx-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.nginx-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.nginx-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.nginx-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.nginx-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      # - traefik.http.middlewares.compress.compress=true
+
+      - traefik.http.routers.nginx.middlewares=nginx-headers@docker,https-redirect@docker
+      - traefik.http.routers.nginxSecure.middlewares=nginx-headers@docker,https-redirect@docker
+
+      - traefik.http.services.nginx.loadbalancer.server.port=3381
+
+  imgproxy:
+    image: darthsim/imgproxy
+    container_name: imgproxy
+    restart: always
+    volumes:
+      - /home/ubuntu/uploads/imgproxy:/data
+    environment:
+      - IMGPROXY_BIND=:8282
+      - IMGPROXY_LOCAL_FILESYSTEM_ROOT=/data
+      # - IMGPROXY_CACHE_REDIS_ADDR=feed-dragonfly:6379
+      # - IMGPROXY_CACHE_REDIS_PASSWORD=mysecretpassword
+      # - IMGPROXY_CACHE_REDIS_DB=1  //db number for imgproxy
+      # - IMGPROXY_PROMETHEUS_BIND=prometheus:9090
+      # - IMGPROXY_PROMETHEUS_NAMESPACE=imgproxy
+      # - IMGPROXY_ALLOWED_SOURCES=s3://,https://static.dmzdev.xyz/,local://
+      # - IMGPROXY_KEY=${IMGPROXY_KEY}
+      # - IMGPROXY_SALT=${IMGPROXY_SALT}
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.imgproxy.rule=Host(`${IMGPROXY}`)
+      - traefik.http.routers.imgproxy.service=imgproxy
+      - traefik.http.routers.imgproxy.entryPoints=web
+
+      - traefik.http.routers.imgproxySecure.rule=Host(`${IMGPROXY}`)
+      - traefik.http.routers.imgproxySecure.service=imgproxy
+      - traefik.http.routers.imgproxySecure.entryPoints=webSecure
+      - traefik.http.routers.imgproxySecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.imgproxy-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.imgproxy-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.imgproxy-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.imgproxy-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.imgproxy-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.imgproxy-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      - traefik.http.routers.imgproxy.middlewares=imgproxy-headers@docker,https-redirect@docker
+      - traefik.http.routers.imgproxySecure.middlewares=imgproxy-headers@docker,https-redirect@docker
+
+      - traefik.http.services.imgproxy.loadbalancer.server.port=8282
+
+  ipfs:
+    image: ipfs/go-ipfs:v0.17.0
+    # image: ipfs/kubo:v0.21.0
+
+    container_name: ipfs
+    restart: always
+    networks:
+      - traefik
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+    volumes:
+      - ./data/ipfs/export:/export
+      - ./data/ipfs/ipfs:/data/ipfs
+      - ./docker/ipfs/001-test.sh:/container-init.d/001-test.sh
+    environment:
+      - IPFS_PROFILE=server
+    labels:
+      - traefik.enable=true
+
+      - |
+        traefik.http.routers.ipfsApi.rule=
+          Host(`${IPFS}`) && (
+          PathPrefix(`/api/v0/add`) ||
+          PathPrefix(`/api/v0/cat`) ||
+          PathPrefix(`/api/v0/get`) ||
+          PathPrefix(`/api/v0/pin/add`) ||
+          PathPrefix(`/api/v0/pin/ls`) ||
+          PathPrefix(`/api/v0/version`) ||
+          PathPrefix(`/debug/metrics/prometheus`))
+      - traefik.http.routers.ipfsApi.service=ipfs
+      - traefik.http.routers.ipfsApi.entryPoints=web
+
+      - traefik.http.routers.ipfs.rule=Host(`${IPFS}`)
+      - traefik.http.routers.ipfs.service=ipfs
+      - traefik.http.routers.ipfs.middlewares=auth@file
+      - traefik.http.routers.ipfs.entryPoints=web
+
+      - |
+        traefik.http.routers.ipfsApiSecure.rule=
+          Host(`${IPFS}`) && (
+          PathPrefix(`/api/v0/add`) ||
+          PathPrefix(`/api/v0/cat`) ||
+          PathPrefix(`/api/v0/get`) ||
+          PathPrefix(`/api/v0/pin/add`) ||
+          PathPrefix(`/api/v0/pin/ls`) ||
+          PathPrefix(`/api/v0/version`) ||
+          PathPrefix(`/debug/metrics/prometheus`))
+      - traefik.http.routers.ipfsApiSecure.service=ipfs
+      - traefik.http.routers.ipfsApiSecure.entryPoints=webSecure
+      - traefik.http.routers.ipfsApiSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.routers.ipfsSecure.rule=Host(`${IPFS}`)
+      - traefik.http.routers.ipfsSecure.service=ipfs
+      - traefik.http.routers.ipfsSecure.middlewares=auth@file
+      - traefik.http.routers.ipfsSecure.entryPoints=webSecure
+      - traefik.http.routers.ipfsSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.ipfs-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.ipfs-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.ipfs-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.ipfs-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.ipfs-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.ipfs-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      # - traefik.http.middlewares.compress.compress=true
+
+      # - traefik.http.routers.ipfs.middlewares=ipfs-headers@docker,https-redirect@docker,compress@docker
+      # - traefik.http.routers.ipfsSecure.middlewares=ipfs-headers@docker,https-redirect@docker,compress@docker
+      - traefik.http.routers.ipfs.middlewares=ipfs-headers@docker,https-redirect@docker
+      - traefik.http.routers.ipfsSecure.middlewares=ipfs-headers@docker,https-redirect@docker
+
+      - traefik.http.services.ipfs.loadbalancer.server.port=5001
+
+      - traefik.http.routers.ipfsContent.rule=Host(`${IPFS_CONTENT}`)
+      - traefik.http.routers.ipfsContent.service=ipfsContent
+      - traefik.http.routers.ipfsContent.entryPoints=web
+
+      - traefik.http.routers.ipfsContentSecure.rule=Host(`${IPFS_CONTENT}`)
+      - traefik.http.routers.ipfsContentSecure.service=ipfsContent
+      - traefik.http.routers.ipfsContentSecure.entryPoints=webSecure
+      - traefik.http.routers.ipfsContentSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.ipfsContent-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.ipfsContent-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.ipfsContent-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.ipfsContent-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.ipfsContent-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.ipfsContent-headers.headers.stsPreload=true
+
+      # - traefik.http.routers.ipfsContent.middlewares=ipfsContent-headers@docker,https-redirect@docker,compress@docker
+      # - traefik.http.routers.ipfsContent.middlewares=https-redirect@docker,compress@docker
+
+      - traefik.http.routers.ipfsContent.middlewares=ipfsContent-headers@docker,https-redirect@docker
+      - traefik.http.routers.ipfsContentSecure.middlewares=ipfsContent-headers@docker,https-redirect@docker
+
+      - traefik.http.services.ipfsContent.loadbalancer.server.port=8080
+  node-exporter:
+    image: prom/node-exporter:v1.3.1
+    container_name: node-exporter
+    restart: always
+    networks:
+      - traefik
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nodeExporter.rule=Host(`${NODE_EXPORTER}`)
+      - traefik.http.routers.nodeExporter.service=nodeExporter
+      - traefik.http.routers.nodeExporter.entryPoints=web
+
+      - traefik.http.routers.nodeExporterSecure.rule=Host(`${NODE_EXPORTER}`)
+      - traefik.http.routers.nodeExporterSecure.service=nodeExporter
+      - traefik.http.routers.nodeExporterSecure.middlewares=auth@file
+      - traefik.http.routers.nodeExporterSecure.entryPoints=webSecure
+      - traefik.http.routers.nodeExporterSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.nodeExporter-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.nodeExporter-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.nodeExporter-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.nodeExporter-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.nodeExporter-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.nodeExporter-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      - traefik.http.middlewares.compress.compress=true
+
+      - traefik.http.routers.nodeExporter.middlewares=nodeExporter-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+      - traefik.http.routers.nodeExporterSecure.middlewares=nodeExporter-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+
+      - traefik.http.services.nodeExporter.loadbalancer.server.port=9100
+  prometheus:
+    image: prom/prometheus:v2.40.2
+    container_name: prometheus
+    restart: always
+    user: root
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - traefik
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./data/prometheus:/prometheus
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS}`)
+      - traefik.http.routers.prometheus.service=prometheus
+      - traefik.http.routers.prometheus.middlewares=auth@file
+      - traefik.http.routers.prometheus.entryPoints=web
+
+      - traefik.http.routers.prometheusSecure.rule=Host(`${PROMETHEUS}`)
+      - traefik.http.routers.prometheusSecure.service=prometheus
+      - traefik.http.routers.prometheusSecure.middlewares=auth@file
+      - traefik.http.routers.prometheusSecure.entryPoints=webSecure
+      - traefik.http.routers.prometheusSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.prometheus-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.prometheus-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.prometheus-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.prometheus-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.prometheus-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.prometheus-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      - traefik.http.middlewares.compress.compress=true
+
+      - traefik.http.routers.prometheus.middlewares=prometheus-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+      - traefik.http.routers.prometheusSecure.middlewares=prometheus-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+
+      - traefik.http.routers.prometheusMetrics.rule=Host(`${PROMETHEUS}`) && PathPrefix(`/metrics`)
+      - traefik.http.routers.prometheusMetrics.service=prometheus
+      - traefik.http.routers.prometheusMetrics.entryPoints=web
+
+      - traefik.http.routers.prometheusMetricsSecure.rule=Host(`${PROMETHEUS}`) && PathPrefix(`/metrics`)
+      - traefik.http.routers.prometheusMetricsSecure.service=prometheus
+      - traefik.http.routers.prometheusMetricsSecure.entryPoints=webSecure
+      - traefik.http.routers.prometheusMetricsSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+  grafana:
+    image: grafana/grafana:9.2.5
+    container_name: grafana
+    restart: always
+    user: root
+    networks:
+      - traefik
+    volumes:
+      - ./data/grafana/lib:/var/lib/grafana
+      - ./data/grafana/log:/var/log/grafana
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.grafana.rule=Host(`${GRAFANA}`)
+      - traefik.http.routers.grafana.service=grafana
+      - traefik.http.routers.grafana.entryPoints=web
+
+      - traefik.http.routers.grafanaSecure.rule=Host(`${GRAFANA}`)
+      - traefik.http.routers.grafanaSecure.service=grafana
+      - traefik.http.routers.grafanaSecure.middlewares=auth@file
+      - traefik.http.routers.grafanaSecure.entryPoints=webSecure
+      - traefik.http.routers.grafanaSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.grafana-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.grafana-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.grafana-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.grafana-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.grafana-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.grafana-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      - traefik.http.middlewares.compress.compress=true
+
+      - traefik.http.routers.grafana.middlewares=grafana-headers@docker,https-redirect@docker,compress@docker
+      - traefik.http.routers.grafanaSecure.middlewares=grafana-headers@docker,https-redirect@docker,compress@docker
+
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+  consul-server:
+    image: consul:1.14.1
+    container_name: consul-server
+    restart: always
+    networks:
+      - traefik
+    ports:
+      - "8300:8300"
+      - "8301:8301"
+      - "8302:8302"
+      - "8600:8600"
+      - "8600:8600/udp"
+    command: agent -node=${CONSUL_NAME} -server -bootstrap -ui -bind=0.0.0.0 -client=0.0.0.0
+    volumes:
+      - ./docker/consul/local:/consul/config
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.consulServer.rule=Host(`${CONSUL}`)
+      - traefik.http.routers.consulServer.service=consulServer
+      - traefik.http.routers.consulServer.entryPoints=web
+
+      - traefik.http.routers.consulServerSecure.rule=Host(`${CONSUL}`)
+      - traefik.http.routers.consulServerSecure.service=consulServer
+      - traefik.http.routers.consulServerSecure.middlewares=auth@file
+      - traefik.http.routers.consulServerSecure.entryPoints=webSecure
+      - traefik.http.routers.consulServerSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.middlewares.consulServer-headers.headers.FrameDeny=true
+      - traefik.http.middlewares.consulServer-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.consulServer-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.consulServer-headers.headers.stsSeconds=315360000
+      - traefik.http.middlewares.consulServer-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.consulServer-headers.headers.stsPreload=true
+
+      - traefik.http.middlewares.https-redirect.redirectScheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectScheme.permanent=true
+
+      - traefik.http.middlewares.compress.compress=true
+
+      - traefik.http.routers.consulServer.middlewares=consulServer-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+      - traefik.http.routers.consulServerSecure.middlewares=consulServer-headers@docker,https-redirect@docker,compress@docker,httpauth@docker
+
+      - traefik.http.services.consulServer.loadbalancer.server.port=8500
+  cron:
+    build: ./docker/cron
+    volumes:
+      - ./mysql-dumps:/dumps
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    networks:
+      - traefik
+
+  mysql:
+    build: ./docker/mysql
+    container_name: mysql-db
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./mysql:/var/lib/mysql
+      - ./mysql-dumps:/dumps
+    networks:
+      traefik:
+        aliases:
+        - mysqlserver
+    labels:
+     - traefik.enable=true
+     - traefik.http.services.backmysql.loadbalancer.server.port=3606
+
+  mongodb:
+    image: "mongo:latest"
+    container_name: "mongodb"
+    restart: always
+    ports:
+      - 29019:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - ./mongo-data:/data/db
+      - ./mongo-dumps:/dumps
+    networks:
+      traefik:
+        aliases:
+        - mongoserver
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.backmongo.loadbalancer.server.port=27017
+
+networks:
+  traefik:
+    external: true
+    name: traefik

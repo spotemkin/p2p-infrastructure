@@ -1,0 +1,133 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: always
+    networks:
+      - traefik
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./docker/traefik/provider.yml:/etc/traefik/provider.yml
+      - ./.htpasswd:/etc/.htpasswd
+      - ./data/traefik/acme:/etc/traefik/acme
+      - ./data/traefik/log:/var/log/traefik
+    command:
+      - "--certificatesResolvers.letsEncrypt.acme.email=${EMAIL}"
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.traefik.rule=Host(`${TRAEFIK}`)
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.middlewares=auth@file
+      - traefik.http.routers.traefik.entryPoints=web
+
+      - traefik.http.routers.traefikSecure.rule=Host(`${TRAEFIK}`)
+      - traefik.http.routers.traefikSecure.service=api@internal
+      - traefik.http.routers.traefikSecure.middlewares=auth@file
+      - traefik.http.routers.traefikSecure.entryPoints=webSecure
+      - traefik.http.routers.traefikSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.routers.traefikPrometheus.rule=Host(`${TRAEFIK_METRICS}`)
+      - traefik.http.routers.traefikPrometheus.service=prometheus@internal
+      - traefik.http.routers.traefikPrometheus.entryPoints=web
+
+      - traefik.http.routers.traefikPrometheusSecure.rule=Host(`${TRAEFIK_METRICS}`)
+      - traefik.http.routers.traefikPrometheusSecure.service=prometheus@internal
+      - traefik.http.routers.traefikPrometheusSecure.entryPoints=webSecure
+      - traefik.http.routers.traefikPrometheusSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.traefik.loadbalancer.server.port=8082
+  whoami:
+    image: traefik/whoami:v1.8.7
+    command:
+       # It tells whoami to start listening on 2001 instead of 80
+       - --port=3380
+    container_name: whoami
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.rule=Host(`${WHOAMI}`)
+      - traefik.http.routers.whoami.service=whoami
+      - traefik.http.routers.whoami.entryPoints=web
+
+      - traefik.http.routers.whoamiSecure.rule=Host(`${WHOAMI}`)
+      - traefik.http.routers.whoamiSecure.service=whoami
+      - traefik.http.routers.whoamiSecure.entryPoints=webSecure
+      - traefik.http.routers.whoamiSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.whoami.loadbalancer.server.port=3380
+  node-exporter:
+    image: prom/node-exporter:v1.3.1
+    container_name: node-exporter
+    networks:
+      - traefik
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nodeExporter.rule=Host(`${NODE_EXPORTER}`)
+      - traefik.http.routers.nodeExporter.service=nodeExporter
+      - traefik.http.routers.nodeExporter.entryPoints=web
+
+      - traefik.http.routers.nodeExporterSecure.rule=Host(`${NODE_EXPORTER}`)
+      - traefik.http.routers.nodeExporterSecure.service=nodeExporter
+      - traefik.http.routers.nodeExporterSecure.entryPoints=webSecure
+      - traefik.http.routers.nodeExporterSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.nodeExporter.loadbalancer.server.port=9100
+  vpn:
+    image: weejewel/wg-easy:latest
+    container_name: vpn
+    restart: always
+    networks:
+      - traefik
+    ports:
+      - "51820:51820/udp"
+    environment:
+      - WG_HOST=${VPN}
+      - PASSWORD=${VPN_PASSWORD}
+    volumes:
+      - ./data/wireguard:/etc/wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.vpn.rule=Host(`${VPN}`)
+      - traefik.http.routers.vpn.service=vpn
+      - traefik.http.routers.vpn.entryPoints=web
+
+      - traefik.http.routers.vpnSecure.rule=Host(`${VPN}`)
+      - traefik.http.routers.vpnSecure.service=vpn
+      - traefik.http.routers.vpnSecure.entryPoints=webSecure
+      - traefik.http.routers.vpnSecure.tls.certResolver=letsEncrypt
+
+      - traefik.http.services.vpn.loadbalancer.server.port=51821
+  consul-agent:
+    image: consul:1.14.1
+    container_name: consul-agent
+    network_mode: host
+    command: agent -node=${CONSUL_NAME} -bind=${CONSUL_BIND} -retry-join=${CONSUL_JOIN}
+    volumes:
+      - ./docker/consul/vpn:/consul/config
+networks:
+  traefik:
+    external: true
+    name: traefik
