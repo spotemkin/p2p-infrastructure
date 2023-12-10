@@ -13,20 +13,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3.1.0
 
-      # - name: Test SSH Connection
-      #   run: |
-      #     echo "${{ secrets.DMZ_GIT_ACTIONS_PROD }}" > ssh_key
-      #     chmod 600 ssh_key
-      #     ssh -i ssh_key -o StrictHostKeyChecking=no root@domiz.org echo "SSH connection successful"
-
       - name: Copy files on server
         uses: appleboy/scp-action@master
         with:
-          host: dmzdev.xyz
-          port: 22
+          host: organiq.ru
+          port: 7722
           username: root
           key: ${{ secrets.NMZ_GIT_ACTIONS }}
-          source: docker,docker-compose-dev.yaml,.env.dev
+          source: docker,docker-compose-dev.yaml
           target: /srv
           overwrite: true
           debug: true
@@ -37,16 +31,16 @@ jobs:
           script: |
             cd /srv
             touch .htpasswd
-            htpasswd -bB .htpasswd ${{ secrets.BASIC_AUTH_USER }} ${{ secrets.BASIC_AUTH_PASSWORD }}
-            export MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-            export MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_INITDB_ROOT_USERNAME }}
-            export MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}
-            export IMGPROXY_KEY=${{ secrets.IMGPROXY_KEY }}
-            export IMGPROXY_SALT=${{ secrets.IMGPROXY_SALT }}
-            docker compose -f docker-compose-dev.yaml --env-file .env.dev pull
-            docker compose -f docker-compose-dev.yaml --env-file .env.dev down
-            docker compose -f docker-compose-dev.yaml --env-file .env.dev up -d --remove-orphans
-          host: dmzdev.xyz
-          port: 22
+            htpasswd -bB .htpasswd ${{ vars.BASIC_AUTH_USER }} ${{ secrets.BASIC_AUTH_PASSWORD }}
+            export TRAEFIK_DOMAIN=${{ vars.TRAEFIK_DOMAIN }}
+            export METRICS_DOMAIN=${{ vars.METRICS_DOMAIN }}
+            export WHOAMI_DOMAIN=${{ vars.WHOAMI_DOMAIN }}
+            export NODE_DOMAIN=${{ vars.NODE_DOMAIN }}
+            export PROMETHEUS_DOMAIN=${{ vars.PROMETHEUS_DOMAIN }}
+            docker compose -f docker-compose-dev.yaml pull
+            docker compose -f docker-compose-dev.yaml down
+            docker compose -f docker-compose-dev.yaml up -d --remove-orphans
+          host: organiq.ru
+          port: 7722
           username: root
           key: ${{ secrets.NMZ_GIT_ACTIONS }}
