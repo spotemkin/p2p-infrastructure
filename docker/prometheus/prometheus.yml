@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "node"
+    scheme: https
+    consul_sd_configs:
+      - server: consul-server:8500
+    relabel_configs:
+      - source_labels: [__meta_consul_tags]
+        regex: .*metrics.*
+        action: keep
+      - source_labels: [__meta_consul_service]
+        target_label: job
+      - source_labels: [__meta_consul_service_metadata_path]
+        regex: (\/.+)
+        action: replace
+        target_label: __metrics_path__
+      - source_labels: [__meta_consul_service_metadata_scheme]
+        regex: (http)
+        action: replace
+        target_label: __scheme__
