@@ -16,10 +16,10 @@ jobs:
       - name: Copy files on server
         uses: appleboy/scp-action@master
         with:
-          host: organiq.ru
-          port: 7722
-          username: root
-          key: ${{ secrets.NMZ_GIT_ACTIONS }}
+          host: ${{ vars.MAIN_DOMAIN }}
+          port: ${{ vars.SSH_PORT }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.DEV_SERVER_KEY }}
           source: docker,docker-compose-dev.yaml
           target: /srv
           overwrite: true
@@ -40,7 +40,7 @@ jobs:
             docker compose -f docker-compose-dev.yaml pull
             docker compose -f docker-compose-dev.yaml down
             docker compose -f docker-compose-dev.yaml up -d --remove-orphans
-          host: organiq.ru
-          port: 7722
-          username: root
-          key: ${{ secrets.NMZ_GIT_ACTIONS }}
+          host: ${{ vars.MAIN_DOMAIN }}
+          port: ${{ vars.SSH_PORT }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.DEV_SERVER_KEY }}
