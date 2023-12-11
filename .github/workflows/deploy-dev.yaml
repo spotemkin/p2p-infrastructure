@@ -21,7 +21,7 @@ jobs:
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.DEV_SERVER_KEY }}
           source: docker,docker-compose-dev-01.yaml
-          target: /srv/p2p-infrastructure
+          target: /srv/
           overwrite: true
           debug: true
 
@@ -29,7 +29,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           script: |
-            cd /srv/p2p-infrastructure
+            cd /srv/
             touch .htpasswd
             htpasswd -bB .htpasswd ${{ vars.BASIC_AUTH_USER }} ${{ secrets.BASIC_AUTH_PASSWORD }}
             export EMAIL=${{ vars.EMAIL }}
