@@ -33,9 +33,9 @@ services:
       - traefik.http.routers.traefikSecure.entryPoints=webSecure
       - traefik.http.routers.traefikSecure.tls.certResolver=letsEncrypt
 
-      - traefik.http.routers.http_catchall.rule=HostRegexp(`{any:.+}`)
-      - traefik.http.routers.http_catchall.entrypoints=web
-      - traefik.http.routers.http_catchall.middlewares=https_redirect
+      # - traefik.http.routers.http_catchall.rule=HostRegexp(`{any:.+}`)
+      # - traefik.http.routers.http_catchall.entrypoints=web
+      # - traefik.http.routers.http_catchall.middlewares=https_redirect
 
       - traefik.http.middlewares.traefik-headers.headers.FrameDeny=true
       - traefik.http.middlewares.traefik-headers.headers.browserXssFilter=true
