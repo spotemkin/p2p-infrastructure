@@ -37,9 +37,9 @@ jobs:
             export WHOAMI_DOMAIN=${{ vars.WHOAMI_DOMAIN }}
             export NODE_DOMAIN=${{ vars.NODE_DOMAIN }}
             export PROMETHEUS_DOMAIN=${{ vars.PROMETHEUS_DOMAIN }}
-            docker compose docker-compose-dev.yaml pull
-            docker compose docker-compose-dev.yaml down
-            docker compose docker-compose-dev.yaml up -d --remove-orphans
+            docker compose -f docker-compose-dev.yaml pull
+            docker compose -f docker-compose-dev.yaml down
+            docker compose -f docker-compose-dev.yaml up -d --remove-orphans
           host: ${{ vars.MAIN_DOMAIN }}
           port: ${{ vars.SSH_PORT }}
           username: ${{ vars.SSH_USER }}
