@@ -32,6 +32,7 @@ jobs:
             cd /srv
             touch .htpasswd
             htpasswd -bB .htpasswd ${{ vars.BASIC_AUTH_USER }} ${{ secrets.BASIC_AUTH_PASSWORD }}
+            export EMAIL=${{ vars.EMAIL }}
             export TRAEFIK_DOMAIN=${{ vars.TRAEFIK_DOMAIN }}
             export METRICS_DOMAIN=${{ vars.METRICS_DOMAIN }}
             export WHOAMI_DOMAIN=${{ vars.WHOAMI_DOMAIN }}
