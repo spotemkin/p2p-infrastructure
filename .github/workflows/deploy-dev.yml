@@ -1,4 +1,4 @@
-name: Deploy ifrastructure to DEV
+name: P2P ifrastructure to DEV
 
 on:
   workflow_dispatch:

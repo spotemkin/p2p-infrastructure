@@ -1,4 +1,4 @@
-name: Deploy ifrastructure to PROD
+name: P2P ifrastructure to PROD
 on:
   workflow_dispatch:
 
