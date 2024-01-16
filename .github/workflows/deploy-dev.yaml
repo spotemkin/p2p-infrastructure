@@ -43,6 +43,8 @@ jobs:
             export WHOAMI_DOMAIN=${{ vars.WHOAMI_DOMAIN }}
             export NODE_DOMAIN=${{ vars.NODE_DOMAIN }}
             export PROMETHEUS_DOMAIN=${{ vars.PROMETHEUS_DOMAIN }}
+            export PIC_DOMAIN=${{ vars.PIC_DOMAIN }}
+            export PIC_CLIENT_PORT=${{ vars.PIC_CLIENT_PORT }}
             docker compose -f docker-compose-dev-01.yaml pull
             docker compose -f docker-compose-dev-01.yaml down --verbose
             docker compose -f docker-compose-dev-01.yaml up -d --remove-orphans
