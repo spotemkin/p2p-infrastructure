@@ -225,7 +225,7 @@ services:
       - -c
       - |
         echo "server {
-          listen ${PIC_CLIENT_PORT};
+          listen 3381;
           server_name localhost;
 
           access_log /var/log/nginx/access.log;
@@ -267,7 +267,7 @@ services:
       - traefik.http.routers.pic-client-service.middlewares.pic-client-header@docker,https-redirect@docker,compress@docker
       - traefik.http.routers.pic-client-serviceSecure.middlewares.pic-client-header@docker,https-redirect@docker,compress@docker
 
-      - traefik.http.services.pic-client.loadbalancer.server.port=${PIC_CLIENT_PORT}
+      - traefik.http.services.pic-client.loadbalancer.server.port=3381
 
 networks:
   traefik:
