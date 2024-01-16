@@ -213,9 +213,9 @@ services:
 
       - traefik.http.services.nodeExporter.loadbalancer.server.port=9100
 
-  picclient:
+  pic_client:
     image: nginx:latest
-    container_name: picclient
+    container_name: pic_client
     restart: always
     volumes:
       - /data/pics/sys/nginx-data/:/data/static:ro
