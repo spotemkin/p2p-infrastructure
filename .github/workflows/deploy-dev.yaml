@@ -24,6 +24,7 @@ jobs:
           target: /srv/infrastructure/
           overwrite: true
           debug: true
+          no-cache: true
 
       - name: Docker compose up
         uses: appleboy/ssh-action@master
@@ -32,6 +33,7 @@ jobs:
           port: ${{ vars.SSH_PORT }}
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.DEV_SERVER_KEY }}
+          no-cache: true
           script: |
             cd /srv/infrastructure/
             touch .htpasswd
