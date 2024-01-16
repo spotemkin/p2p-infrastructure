@@ -28,11 +28,16 @@ jobs:
       - name: Docker compose up
         uses: appleboy/ssh-action@master
         with:
+          host: ${{ vars.MAIN_DOMAIN }}
+          port: ${{ vars.SSH_PORT }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.DEV_SERVER_KEY }}
           script: |
             cd /srv/infrastructure/
             touch .htpasswd
             htpasswd -bB .htpasswd ${{ vars.BASIC_AUTH_USER }} ${{ secrets.BASIC_AUTH_PASSWORD }}
             export EMAIL=${{ vars.EMAIL }}
+            export MAIN_DOMAIN=${{ vars.MAIN_DOMAIN }}
             export TRAEFIK_DOMAIN=${{ vars.TRAEFIK_DOMAIN }}
             export METRICS_DOMAIN=${{ vars.METRICS_DOMAIN }}
             export WHOAMI_DOMAIN=${{ vars.WHOAMI_DOMAIN }}
@@ -41,7 +46,4 @@ jobs:
             docker compose -f docker-compose-dev-01.yaml pull
             docker compose -f docker-compose-dev-01.yaml down --verbose
             docker compose -f docker-compose-dev-01.yaml up -d --remove-orphans
-          host: ${{ vars.MAIN_DOMAIN }}
-          port: ${{ vars.SSH_PORT }}
-          username: ${{ vars.SSH_USER }}
-          key: ${{ secrets.DEV_SERVER_KEY }}
+
