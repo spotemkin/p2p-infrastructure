@@ -245,11 +245,11 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.picclient.rule=Host(`${PIC_DOMAIN}`)
-      - traefik.http.routers.picclient.service.picclient-service
+      - traefik.http.routers.picclient.service.picclient
       - traefik.http.routers.picclient.entrypoints=web
 
       - traefik.http.routers.picclientSecure.rule=Host(`${PIC_DOMAIN}`)
-      - traefik.http.routers.picclientSecure.service.picclient-service
+      - traefik.http.routers.picclientSecure.service.picclient
       - traefik.http.routers.picclientSecure.entrypoints=webSecure
       - traefik.http.routers.picclientSecure.tls.certresolver=letsEncrypt
 
