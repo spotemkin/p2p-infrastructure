@@ -169,9 +169,9 @@ services:
       - traefik.http.services.whoami.loadbalancer.server.port=3380
 
 
-  node-exporter:
+  node_exporter:
     image: prom/node-exporter:v1.3.1
-    container_name: node-exporter
+    container_name: node_exporter
     restart: always
     networks:
       - traefik
@@ -247,6 +247,7 @@ services:
       - traefik.http.routers.picclient-service.rule=Host(`${PIC_DOMAIN}`)
       - traefik.http.routers.picclient-service.service.picclient-service
       - traefik.http.routers.picclient-service.entrypoints=web
+
       - traefik.http.routers.picclient-serviceSecure.rule=Host(`${PIC_DOMAIN}`)
       - traefik.http.routers.picclient-serviceSecure.service.picclient-service
       - traefik.http.routers.picclient-serviceSecure.entrypoints=webSecure
