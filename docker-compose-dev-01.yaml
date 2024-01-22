@@ -215,7 +215,7 @@ services:
 
   pic_client:
     image: nginx:latest
-    container_name: pic_client
+    container_name: nginx_static
     restart: always
     networks:
       - traefik
